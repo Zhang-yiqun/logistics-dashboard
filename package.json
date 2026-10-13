@@ -1,0 +1,30 @@
+{
+  "name": "logistics-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "物流运输履约异常看板 + AI 经营分析报告（MVP）",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "type-check": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "@surbowl/world-geo-json-zh": "^2.1.5",
+    "echarts": "^5.5.1",
+    "element-plus": "^2.8.0",
+    "pinia": "^2.2.2",
+    "vue": "^3.4.38",
+    "vue-router": "^4.4.3"
+  },
+  "devDependencies": {
+    "@esbuild/win32-x64": "^0.21.5",
+    "@types/node": "^22.5.0",
+    "@vitejs/plugin-vue": "^5.1.2",
+    "typescript": "~5.5.4",
+    "vite": "^5.4.2",
+    "vue-tsc": "^2.1.4"
+  }
+}
