@@ -4,7 +4,7 @@ import { WindPower, PieChart, Histogram } from '@element-plus/icons-vue'
 import { api } from '@/api'
 import { useECharts } from '@/composables/useECharts'
 import StatCard from '@/components/StatCard.vue'
-import { MODE_TEXT, type CarbonRecord } from '@/types'
+import { MODE_TEXT, type CarbonRecord, type TransportMode } from '@/types'
 
 const carbons = ref<CarbonRecord[]>([])
 const barEl = ref<HTMLElement | null>(null)
@@ -106,7 +106,7 @@ function renderBar() {
       <el-table :data="carbons" style="width: 100%" size="small">
         <el-table-column prop="lane" label="线路" width="160" />
         <el-table-column label="运输方式" width="110">
-          <template #default="{ row }">{{ MODE_TEXT[row.mode] }}</template>
+          <template #default="{ row }">{{ MODE_TEXT[row.mode as TransportMode] }}</template>
         </el-table-column>
         <el-table-column prop="distance" label="距离(km)" width="110" />
         <el-table-column prop="weight" label="货重(吨)" width="110" />

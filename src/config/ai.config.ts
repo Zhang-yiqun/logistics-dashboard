@@ -1,6 +1,10 @@
 // ============ AI 大模型配置 ============
-// 配置优先级：页面配置（localStorage）> 环境变量（.env）
-// 用户可在页面「AI 设置」里直接填 Key，无需改代码/重新构建。
+// 工作模式（自动检测）：
+//   1) 代理模式：部署环境提供了 /api/chat（Vercel Serverless Function），
+//      Key 存服务端，前端无需持有任何 Key，打开即用。优先使用。
+//   2) 自带 Key 模式：用户在页面「AI 设置」里填入自己的 Key（存 localStorage）。
+//      本地开发 / 未部署代理时的兜底方案。
+// 用户在页面填了 Key 时，仍以用户配置为准（方便买家用自己的额度）。
 
 import { ref } from 'vue'
 
@@ -12,6 +16,7 @@ export interface AISettings {
 }
 
 const STORAGE_KEY = 'logistics_ai_settings'
+const PROXY_ENDPOINT = '/api/chat'
 
 export const PROVIDER_PRESETS: Record<
   AISettings['provider'],
@@ -86,14 +91,68 @@ export function clearAISettings() {
   aiSettings.value = getEnvDefaults()
 }
 
+// ============ 代理可用性探测 ============
+// 部署环境存在 /api/chat 时返回 true。探测结果缓存，避免重复请求。
+export const proxyAvailable = ref(false)
+
+let proxyProbed = false
+export async function probeProxy(): Promise<boolean> {
+  if (proxyProbed) return proxyAvailable.value
+  proxyProbed = true
+  try {
+    const res = await fetch(PROXY_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: [] }) // 空 messages 会得到 400，但足以证明端点存在
+    })
+    // 只要不是 404（HTML 页面/未部署），就认为代理可用
+    proxyAvailable.value = res.status !== 404 && res.status !== 405
+  } catch {
+    proxyAvailable.value = false
+  }
+  return proxyAvailable.value
+}
+
+/** AI 是否可用：用户填了 Key，或部署环境提供了代理 */
+export function isAIReady(): boolean {
+  return !!aiSettings.value.apiKey || proxyAvailable.value
+}
+
+/** 走代理调用（Key 在服务端） */
+async function callViaProxy(
+  messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
+  temperature = 0.3
+): Promise<string> {
+  const res = await fetch(PROXY_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages, temperature })
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(data?.error || `AI 调用失败：HTTP ${res.status}`)
+  }
+  return data?.content ?? ''
+}
+
 /**
  * 调用大模型生成文本（OpenAI 兼容接口）
+ * 优先使用用户自填 Key；未填时回退到部署环境的代理函数。
  */
 export async function callLLM(systemPrompt: string, userPrompt: string): Promise<string> {
   const cfg = aiSettings.value
+  const messages = [
+    { role: 'system' as const, content: systemPrompt },
+    { role: 'user' as const, content: userPrompt }
+  ]
+
   if (!cfg.apiKey) {
+    if (proxyAvailable.value || (await probeProxy())) {
+      return callViaProxy(messages)
+    }
     throw new Error('未配置 AI Key，请点击右上角「AI 设置」填入 DeepSeek 或通义千问的 API Key')
   }
+
   const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -102,10 +161,7 @@ export async function callLLM(systemPrompt: string, userPrompt: string): Promise
     },
     body: JSON.stringify({
       model: cfg.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
+      messages,
       temperature: 0.3
     })
   })
@@ -118,14 +174,20 @@ export async function callLLM(systemPrompt: string, userPrompt: string): Promise
 
 /**
  * 多轮对话调用（支持完整 messages 数组）
+ * 优先使用用户自填 Key；未填时回退到部署环境的代理函数。
  */
 export async function callLLMChat(
   messages: { role: 'system' | 'user' | 'assistant'; content: string }[]
 ): Promise<string> {
   const cfg = aiSettings.value
+
   if (!cfg.apiKey) {
+    if (proxyAvailable.value || (await probeProxy())) {
+      return callViaProxy(messages)
+    }
     throw new Error('未配置 AI Key，请点击右上角「AI 设置」填入 DeepSeek 或通义千问的 API Key')
   }
+
   const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {

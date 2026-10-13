@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   Odometer,
@@ -14,7 +14,7 @@ import {
 } from '@element-plus/icons-vue'
 import AISettingsDialog from '@/components/AISettingsDialog.vue'
 import AiChatPanel from '@/components/AiChatPanel.vue'
-import { hasAIConfigured } from '@/config/ai.config'
+import { isAIReady, probeProxy, aiSettings } from '@/config/ai.config'
 
 const route = useRoute()
 const settingsVisible = ref(false)
@@ -31,7 +31,13 @@ const menus = [
 ]
 
 const currentTitle = computed(() => (route.meta.title as string) ?? '物流控制塔')
-const aiOn = computed(() => hasAIConfigured())
+// AI 可用 = 用户已填 Key，或部署环境提供了代理（演示模式）
+const aiOn = computed(() => !!aiSettings.value.apiKey || isAIReady())
+
+onMounted(async () => {
+  // 探测部署环境是否提供 AI 代理，用于顶栏状态显示
+  await probeProxy()
+})
 </script>
 
 <template>
