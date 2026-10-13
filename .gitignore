@@ -2,6 +2,12 @@ node_modules
 dist
 dist-ssr
 *.local
+
+# 不提交 lock 文件：本地为 Windows，生成的 lock 会固化 @esbuild/win32-x64 条目，
+# 导致 Vercel（Linux）构建时报 EBADPLATFORM。交由构建环境现场解析依赖。
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
 .env
 .env.*
 !.env.example
